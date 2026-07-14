@@ -304,7 +304,11 @@ class LagunaAttention(QKNormRoPEAttention):
             rp.beta_slow = float(rp_dict.get("beta_slow", 1.0))
             attention_factor = rp_dict.get("attention_factor")
             if attention_factor is not None:
-                rp.mscale = float(attention_factor)
+                # attention_factor is the FINAL YaRN scaling (HF semantics).
+                # create_sinusoidal_positions_yarn applies get_mscale(factor, rp.mscale)
+                # = 0.1*rp.mscale*ln(factor)+1 (mscale_all_dim=0), so setting mscale to the
+                # final value routes it through the log twice. Invert to reproduce it exactly.
+                rp.mscale = ((attention_factor - 1.0) / (0.1 * math.log(rp.scale))) if rp.scale > 1 else 1.0
             rp.original_max_positions = int(
                 rp_dict.get("original_max_position_embeddings", config.max_position_embeddings)
             )
